@@ -674,7 +674,16 @@ function build(){
     a.download=fileName.replace(/\.(sav|srm)$/i,'')+'_已修改.sav';
     a.className='dl'; a.textContent='⬇ 下载修改后的存档（先备份原文件）';
     $('dlWrap').appendChild(a);
-    $('saveLog').textContent='已生成：'+check.length+' 份存档均通过校验，文件大小 '+out.length+' 字节不变。替换原存档后请完全重启模拟器读档。';
+    if(out.length>131072){
+      const dblob=new Blob([out.slice(0,131072)],{type:'application/octet-stream'});
+      const da=document.createElement('a');
+      da.href=URL.createObjectURL(dblob);
+      da.download=fileName.replace(/\.(sav|srm)$/i,'')+'_Delta.sav';
+      da.className='dl'; da.style.background='#0b8a7b'; da.style.marginLeft='8px';
+      da.textContent='⬇ 下载 Delta 兼容版（已去 RTC 附加数据）';
+      $('dlWrap').appendChild(da);
+    }
+    $('saveLog').textContent='已生成：'+check.length+' 份存档均通过校验。电脑 mGBA 用普通版；手机 Delta 请用 Delta 兼容版（131072 字节，文件名需与 ROM 一致）。替换原存档后请完全重启模拟器读档。';
   }catch(e){ $('saveErr').textContent=e.message; }
 }
 initStatic();
