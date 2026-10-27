@@ -70,7 +70,7 @@
     <div class="row" style="margin-top:6px">
       <div><label>金钱（0–999999）</label><input type="number" id="money" class="money-input" min="0" max="999999" value="0"></div>
       <div><label>代币（0–9999）</label><input type="number" id="coins" min="0" max="9999" value="0" style="width:110px"></div>
-      <div><label>BracerPoints 点数（字段复核中，暂不可用）</label><input type="number" id="bp" min="0" max="999999" value="0" style="width:120px" disabled></div>
+      <div><label>BracerPoints 点数</label><input type="number" id="bp" min="0" max="999999" value="0" style="width:120px"></div>
       <button id="moneyMax" type="button">拉满 999999</button>
     </div>
   </div>
@@ -149,7 +149,8 @@ const CHARMAP_DEC = {"10":"Œ","11":"Ù","12":"Ú","13":"Û","14":"Ñ","15":"ß"
 const SECTOR = 0x1000, SIG = 0x08012025;
 const SIZES = [0xF24,0xFF0,0xFF0,0xFF0,0xD98,0xFF0,0xFF0,0xFF0,0xFF0,0xFF0,0xFF0,0xFF0,0xFF0,0x450];
 const MON = 58, BOXES = 25, CAP = 30;
-const MONEY_OFF = 0x290, COINS_OFF = 0x294, BP_OFF = 0x1298; // BP=BracerPoints(支线点数), 已用新旧档 4→9 对照定位
+const MONEY_OFF = 0x290, COINS_OFF = 0x294;
+const BP_OFF = 0x596; // BracerPoints: id=13 扇区内 u32 (声明长度之外的自定义区), 经 BP 12→7 对照实验确认
 const BAG_OFF = 0xAD8, BAG_MAX = 64; // 培育道具口袋: id=13 扇区内 (校验和声明长度之外, 两份存档同位置)
 // 本作性格顺序与原版不同: 以 ROM 0x1DA2F51 名称表为准 (已验证 PID%25=22 游戏内显示自大)
 const NATURES = ['勤奋','孤独','勇敢','固执','顽皮','大胆','坦率','悠闲','淘气','乐天','胆小','急躁','认真','爽朗','天真','内敛','稳重','冷静','害羞','马虎','温和','温顺','自大','慎重','浮躁'];
@@ -417,7 +418,7 @@ function buildSave(original, slots, model){
     const b=blocks(out,slot);
     b.sb2=b.sb2.slice(); // 不改动原始输入
     w32(b.sb1,MONEY_OFF,model.money); w16(b.sb1,COINS_OFF,model.coins);
-    if(model.bp!==undefined) w32(b.sb1,BP_OFF,model.bp);
+    if(model.bp!==undefined) w32(out,slot.locs[13]+BP_OFF,model.bp);
     if(model.party) writeParty(b.sb1,model.party);
     for(let box=0;box<BOXES;box++)for(let s=0;s<CAP;s++){
       const {area,off}=boxOffset(box,s);
@@ -532,7 +533,7 @@ function loadFile(file){
       slots=C.parseSave(data);
       fileBytes=data; fileName=file.name;
       const cur=slots[0], b=C.blocks(data,cur);
-      model={money:C.u32(b.sb1,C.MONEY_OFF),coins:C.u16(b.sb1,C.COINS_OFF),bp:C.u32(b.sb1,C.BP_OFF),boxes:[],bag:C.readBag(data,cur),party:C.readParty(b.sb1)};
+      model={money:C.u32(b.sb1,C.MONEY_OFF),coins:C.u16(b.sb1,C.COINS_OFF),bp:C.u32(data,cur.locs[13]+C.BP_OFF),boxes:[],bag:C.readBag(data,cur),party:C.readParty(b.sb1)};
       for(let box=0;box<C.BOXES;box++){
         const arr=[];
         for(let s=0;s<C.CAP;s++) arr.push(C.readMon(b,box,s));
