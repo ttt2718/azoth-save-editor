@@ -70,6 +70,7 @@
     <div class="row" style="margin-top:6px">
       <div><label>金钱（0–999999）</label><input type="number" id="money" class="money-input" min="0" max="999999" value="0"></div>
       <div><label>代币（0–9999）</label><input type="number" id="coins" min="0" max="9999" value="0" style="width:110px"></div>
+      <div><label>BracerPoints 点数</label><input type="number" id="bp" min="0" max="999999" value="0" style="width:120px"></div>
       <button id="moneyMax" type="button">拉满 999999</button>
     </div>
   </div>
@@ -148,7 +149,7 @@ const CHARMAP_DEC = {"10":"Œ","11":"Ù","12":"Ú","13":"Û","14":"Ñ","15":"ß"
 const SECTOR = 0x1000, SIG = 0x08012025;
 const SIZES = [0xF24,0xFF0,0xFF0,0xFF0,0xD98,0xFF0,0xFF0,0xFF0,0xFF0,0xFF0,0xFF0,0xFF0,0xFF0,0x450];
 const MON = 58, BOXES = 25, CAP = 30;
-const MONEY_OFF = 0x290, COINS_OFF = 0x294;
+const MONEY_OFF = 0x290, COINS_OFF = 0x294, BP_OFF = 0x1298; // BP=BracerPoints(支线点数), 已用新旧档 4→9 对照定位
 const BAG_OFF = 0xAD8, BAG_MAX = 64; // 培育道具口袋: id=13 扇区内 (校验和声明长度之外, 两份存档同位置)
 // 本作性格顺序与原版不同: 以 ROM 0x1DA2F51 名称表为准 (已验证 PID%25=22 游戏内显示自大)
 const NATURES = ['勤奋','孤独','勇敢','固执','顽皮','大胆','坦率','悠闲','淘气','乐天','胆小','急躁','认真','爽朗','天真','内敛','稳重','冷静','害羞','马虎','温和','温顺','自大','慎重','浮躁'];
@@ -416,6 +417,7 @@ function buildSave(original, slots, model){
     const b=blocks(out,slot);
     b.sb2=b.sb2.slice(); // 不改动原始输入
     w32(b.sb1,MONEY_OFF,model.money); w16(b.sb1,COINS_OFF,model.coins);
+    if(model.bp!==undefined) w32(b.sb1,BP_OFF,model.bp);
     if(model.party) writeParty(b.sb1,model.party);
     for(let box=0;box<BOXES;box++)for(let s=0;s<CAP;s++){
       const {area,off}=boxOffset(box,s);
@@ -437,7 +439,7 @@ function buildSave(original, slots, model){
   out.set(special.subarray(0xFF0),31*SECTOR);
   return out;
 }
-globalThis.EditorCore={parseSave,blocks,readMon,monInfo,applyMon,newMon,buildSave,readBag,writeBag,readParty,writeParty,partyInfo,applyParty,calcStats,pidInfo,encodeText,decodeText,levelOf,setShiny,setNature,setAbility,checksum,u16,u32,w16,w32,NATURES,NATURE_EFFECTS,NATURE_MOD,BOXES,CAP,MON,MONEY_OFF,COINS_OFF,SECTOR,SIZES,BAG_OFF,BAG_MAX,PARTY_OFF,PARTY_COUNT_OFF,PARTY_MON};
+globalThis.EditorCore={parseSave,blocks,readMon,monInfo,applyMon,newMon,buildSave,readBag,writeBag,readParty,writeParty,partyInfo,applyParty,calcStats,pidInfo,encodeText,decodeText,levelOf,setShiny,setNature,setAbility,checksum,u16,u32,w16,w32,NATURES,NATURE_EFFECTS,NATURE_MOD,BOXES,CAP,MON,MONEY_OFF,COINS_OFF,BP_OFF,SECTOR,SIZES,BAG_OFF,BAG_MAX,PARTY_OFF,PARTY_COUNT_OFF,PARTY_MON};
 })();
 </script>
 
@@ -530,7 +532,7 @@ function loadFile(file){
       slots=C.parseSave(data);
       fileBytes=data; fileName=file.name;
       const cur=slots[0], b=C.blocks(data,cur);
-      model={money:C.u32(b.sb1,C.MONEY_OFF),coins:C.u16(b.sb1,C.COINS_OFF),boxes:[],bag:C.readBag(data,cur),party:C.readParty(b.sb1)};
+      model={money:C.u32(b.sb1,C.MONEY_OFF),coins:C.u16(b.sb1,C.COINS_OFF),bp:C.u32(b.sb1,C.BP_OFF),boxes:[],bag:C.readBag(data,cur),party:C.readParty(b.sb1)};
       for(let box=0;box<C.BOXES;box++){
         const arr=[];
         for(let s=0;s<C.CAP;s++) arr.push(C.readMon(b,box,s));
@@ -538,7 +540,7 @@ function loadFile(file){
       }
       $('fileName').textContent=file.name+'（'+data.length+' 字节 ✓）';
       $('saveInfo').textContent='有效存档份：'+slots.length+'；当前读取：扇区组 '+(cur.base===0?'A':'B')+'（计数器 '+cur.counter+'）。下载时两份都会写入相同修改。';
-      $('money').value=model.money; $('coins').value=model.coins;
+      $('money').value=model.money; $('coins').value=model.coins; $('bp').value=model.bp;
       for(const id of ['moneyCard','boxCard','dlCard','bagCard','partyCard']) $(id).classList.remove('hidden');
       renderBag(); renderParty();
       $('editor').classList.add('hidden'); curSlot=-1; curBox=0;
@@ -661,7 +663,8 @@ function createMon(){
 function build(){
   $('saveErr').textContent=''; $('dlWrap').innerHTML='';
   try{
-    model.money=Number($('money').value); model.coins=Number($('coins').value);
+    model.money=Number($('money').value); model.coins=Number($('coins').value); model.bp=Number($('bp').value);
+    if(!Number.isInteger(model.bp)||model.bp<0||model.bp>999999) throw new Error('BracerPoints 必须在 0–999999 之间。');
     if(!Number.isInteger(model.money)||model.money<0||model.money>999999) throw new Error('金钱必须在 0–999999 之间。');
     if(!Number.isInteger(model.coins)||model.coins<0||model.coins>9999) throw new Error('代币必须在 0–9999 之间。');
     const out=C.buildSave(fileBytes,slots,model);
