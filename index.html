@@ -87,7 +87,7 @@
   </div>
 
   <div class="card hidden" id="bagCard">
-    <strong>背包</strong> <span class="muted">五个口袋分开编辑；名称与编号对照 azoth-wiki 道具图鉴</span>
+    <strong>背包</strong> <span class="muted">仅编辑已验证的道具 / 精灵球口袋；名称与编号对照 azoth-wiki 道具图鉴</span>
     <div class="box-tabs" id="bagTabs" style="margin-top:10px"></div>
     <div class="row" style="margin-top:6px">
       <div><label>搜索本口袋（名称 / 编号）</label><input type="text" id="bagSearch" placeholder="如：糖果、纪念球、68" style="width:220px"></div>
@@ -157,13 +157,11 @@ const SIZES = [0xF24,0xFF0,0xFF0,0xFF0,0xD98,0xFF0,0xFF0,0xFF0,0xFF0,0xFF0,0xFF0
 const MON = 58, BOXES = 25, CAP = 30;
 const MONEY_OFF = 0x290, COINS_OFF = 0x294;
 const BP_OFF = 0x596; // BracerPoints: id=13 扇区内 u16(仅低16位, 高16位为其他数据需保留), BP 12→7 差分+实机确认
-// 背包各口袋: 道具在 id13 扇区; 其余在特殊扇区30(两槽共享)。上限按口袋间隔推定, 树果为保守值
+// 背包: 仅保留验证过的口袋。道具(id13扇区)经截图与实机确认; 精灵球(特殊扇区30)经用户数量逐项确认。
+// 特殊扇区30的技能机器/树果/重要道具区域未做分区与容量验证, 不写入编辑器。
 const POCKETS = [
   {key:'items', label:'道具', area:'bag', off:0xAD8, max:200},
-  {key:'key', label:'重要道具', area:'special', off:0x1F0, max:75},
-  {key:'balls', label:'精灵球', area:'special', off:0x31C, max:50},
-  {key:'tms', label:'技能机器', area:'special', off:0x3E4, max:128},
-  {key:'berries', label:'树果', area:'special', off:0x5E4, max:64}
+  {key:'balls', label:'精灵球', area:'special', off:0x31C, max:50}
 ];
 // 本作性格顺序与原版不同: 以 ROM 0x1DA2F51 名称表为准 (已验证 PID%25=22 游戏内显示自大)
 const NATURES = ['勤奋','孤独','勇敢','固执','顽皮','大胆','坦率','悠闲','淘气','乐天','胆小','急躁','认真','爽朗','天真','内敛','稳重','冷静','害羞','马虎','温和','温顺','自大','慎重','浮躁'];
@@ -557,6 +555,7 @@ function addBagItem(id){
 }
 function renderBag(){
   const q=($('bagSearch').value||'').trim(), list=model.pockets[activePocket];
+  $('bagTabs').style.display=C.POCKETS.length>1?'':'none';
   for(const btn of $('bagTabs').children) btn.classList.toggle('active',btn.dataset.pocket===activePocket);
   const rows=[];
   list.forEach((e,i)=>{
