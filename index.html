@@ -68,10 +68,10 @@
   <div class="card hidden" id="moneyCard">
     <strong>金钱 / 代币</strong>
     <div class="row" style="margin-top:6px">
-      <div><label>金钱（0–999999）</label><input type="number" id="money" class="money-input" min="0" max="999999" value="0"></div>
+      <div><label>金钱（0–9999999）</label><input type="number" id="money" class="money-input" min="0" max="9999999" value="0"></div>
       <div><label>代币（0–9999）</label><input type="number" id="coins" min="0" max="9999" value="0" style="width:110px"></div>
       <div><label>BracerPoints 点数（0–65535）</label><input type="number" id="bp" min="0" max="65535" value="0" style="width:120px"></div>
-      <button id="moneyMax" type="button">拉满 999999</button>
+      <button id="moneyMax" type="button">拉满 9999999</button>
     </div>
   </div>
 
@@ -492,7 +492,7 @@ function initStatic(){
     if(table&&table[lv]!==undefined) $('fExp').value=table[lv];
   });
   $('fShiny').addEventListener('change',()=>{});
-  $('moneyMax').addEventListener('click',()=>$('money').value=999999);
+  $('moneyMax').addEventListener('click',()=>$('money').value=9999999);
   $('bagItemOptions').innerHTML=Object.entries(DATA.items).filter(([id])=>+id>0).map(([id,n])=>`<option value="${id} - ${n}"></option>`).join('');
   $('bagTabs').innerHTML=C.POCKETS.map(p=>`<button type="button" data-pocket="${p.key}">${p.label}</button>`).join('');
   $('bagTabs').addEventListener('click',e=>{
@@ -713,7 +713,7 @@ function build(){
   try{
     model.money=Number($('money').value); model.coins=Number($('coins').value); model.bp=Number($('bp').value);
     if(!Number.isInteger(model.bp)||model.bp<0||model.bp>65535) throw new Error('BracerPoints 必须在 0–65535 之间。');
-    if(!Number.isInteger(model.money)||model.money<0||model.money>999999) throw new Error('金钱必须在 0–999999 之间。');
+    if(!Number.isInteger(model.money)||model.money<0||model.money>9999999) throw new Error('金钱必须在 0–9999999 之间。');
     if(!Number.isInteger(model.coins)||model.coins<0||model.coins>9999) throw new Error('代币必须在 0–9999 之间。');
     const out=C.buildSave(fileBytes,slots,model);
     const check=C.parseSave(out); // 写回后重新校验所有扇区
