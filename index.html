@@ -107,7 +107,7 @@
     <strong id="editorTitle">编辑</strong> <span class="muted" id="editorTypes"></span>
     <img id="fIcon" alt="" style="width:64px;height:64px;object-fit:contain;image-rendering:pixelated;vertical-align:middle;margin:6px 0">
     <div class="row">
-      <div><label>种类</label><select class="species" id="fSpecies"></select></div>
+      <div><label>种类</label><input type="text" id="fSpeciesSearch" placeholder="搜索名称 / 编号" style="width:180px;margin-bottom:4px"><br><select class="species" id="fSpecies"></select></div>
       <div><label>昵称（中文最多5字 / 编码后≤10字节）</label><input type="text" id="fNick" maxlength="12" style="width:180px"></div>
       <div><label>持有道具</label><select class="item" id="fItem"></select></div>
       <div><label>特性（仅列出该物种合法特性）</label><select id="fAbility" style="width:220px"></select></div>
@@ -481,11 +481,17 @@ function fillMoves(filter){
     sel.innerHTML=h; sel.value=cur;
   }
 }
+function fillSpecies(filter){
+  const list=Object.entries(DATA.species).filter(([id,v])=>!filter||v[0].includes(filter)||id===filter);
+  const sel=$('fSpecies'), cur=sel.value||'1';
+  let h=list.map(([id,v])=>`<option value="${id}">${id} - ${v[0]}</option>`).join('');
+  if(!list.some(([id])=>id===cur)) h=`<option value="${cur}">${cur} - ${(DATA.species[cur]||[''])[0]}</option>`+h; // 保留当前选中项
+  sel.innerHTML=h; sel.value=cur;
+}
 function initStatic(){
   $('fNature').innerHTML=C.NATURES.map((n,i)=>`<option value="${i}">${n}${C.NATURE_EFFECTS[i]?'（'+C.NATURE_EFFECTS[i]+'）':'（无修正）'}</option>`).join('');
-  let sp='';
-  for(const [id,v] of Object.entries(DATA.species)) sp+=`<option value="${id}">${id} - ${v[0]}</option>`;
-  $('fSpecies').innerHTML=sp;
+  fillSpecies('');
+  $('fSpeciesSearch').addEventListener('input',()=>fillSpecies($('fSpeciesSearch').value.trim()));
   $('fItem').innerHTML=optionHTML(DATA.items);
   $('fMoves').innerHTML=[0,1,2,3].map(i=>`<select id="fMove${i}"></select>`).join('');
   fillMoves('');
@@ -657,6 +663,7 @@ function openEditor(){
   $('editorTitle').textContent=(editMode==='party'?`队伍 · 位置${curSlot+1}`:`箱${curBox+1} · 位置${curSlot+1}`)+(raw?'':'（空位）');
   $('editErr').textContent='';
   const m=raw?(editMode==='party'?C.partyInfo(raw):C.monInfo(raw)):null;
+  $('fSpeciesSearch').value=''; fillSpecies('');
   $('fSpecies').value=m?m.species:1;
   $('fNick').value=m?m.nickname:(DATA.species[1][0]);
   $('fItem').value=m?m.item:0;
