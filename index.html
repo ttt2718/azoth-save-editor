@@ -120,6 +120,7 @@
       <div><label>性格（括号内为 +能力 / -能力）</label><select id="fNature" style="width:200px"></select></div>
     </div>
     <label>招式（4 个）</label>
+    <input type="text" id="fMoveSearch" placeholder="搜索招式：名称或编号，如：水枪 / 55" style="width:280px;margin-bottom:4px">
     <div class="moves" id="fMoves"></div>
     <label>个体值 IV（0–31）</label>
     <div class="stat6" id="fIvs"></div>
@@ -471,13 +472,24 @@ function optionHTML(map, zeroLabel){
   return h;
 }
 function iconURL(id){ return ICONS[id] ? 'data:image/png;base64,'+ICONS[id] : ''; }
+function fillMoves(filter){
+  const list=Object.entries(DATA.moves).filter(([id,n])=>!filter||n.includes(filter)||id===filter);
+  for(let i=0;i<4;i++){
+    const sel=$('fMove'+i), cur=sel.value||'0';
+    let h=list.map(([id,n])=>`<option value="${id}">${id} - ${n}</option>`).join('');
+    if(!list.some(([id])=>id===cur)) h=`<option value="${cur}">${cur} - ${DATA.moves[cur]||''}</option>`+h; // 保留当前选中项
+    sel.innerHTML=h; sel.value=cur;
+  }
+}
 function initStatic(){
   $('fNature').innerHTML=C.NATURES.map((n,i)=>`<option value="${i}">${n}${C.NATURE_EFFECTS[i]?'（'+C.NATURE_EFFECTS[i]+'）':'（无修正）'}</option>`).join('');
   let sp='';
   for(const [id,v] of Object.entries(DATA.species)) sp+=`<option value="${id}">${id} - ${v[0]}</option>`;
   $('fSpecies').innerHTML=sp;
   $('fItem').innerHTML=optionHTML(DATA.items);
-  $('fMoves').innerHTML=[0,1,2,3].map(i=>`<select id="fMove${i}">${optionHTML(DATA.moves)}</select>`).join('');
+  $('fMoves').innerHTML=[0,1,2,3].map(i=>`<select id="fMove${i}"></select>`).join('');
+  fillMoves('');
+  $('fMoveSearch').addEventListener('input',()=>fillMoves($('fMoveSearch').value.trim()));
   $('fIvs').innerHTML=STATS.map((s,i)=>`<div><label>${s}</label><input type="number" id="fIv${i}" min="0" max="31" value="31"></div>`).join('');
   $('fEvs').innerHTML=STATS.map((s,i)=>`<div><label>${s}</label><input type="number" id="fEv${i}" min="0" max="255" value="0"></div>`).join('');
   $('boxTabs').innerHTML=Array.from({length:C.BOXES},(_,i)=>`<button type="button" data-box="${i}">箱${i+1}</button>`).join('');
@@ -652,6 +664,7 @@ function openEditor(){
   $('fFriend').value=m?m.friendship:(DATA.species[$('fSpecies').value][4]||70);
   $('fShiny').checked=m?m.shiny:false;
   $('fNature').value=m?m.nature:0;
+  $('fMoveSearch').value=''; fillMoves('');
   for(let i=0;i<4;i++) $('fMove'+i).value=m?m.moves[i]:0;
   for(let i=0;i<6;i++){ $('fIv'+i).value=m?m.ivs[i]:31; $('fEv'+i).value=m?m.evs[i]:0; }
   const isParty=editMode==='party';
