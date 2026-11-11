@@ -35,6 +35,9 @@
   .cell .sp { font-weight: 700; font-size: .82rem; display: block; }
   .cell .lv { color: #567; }
   .cell.empty { color: #a0aeb5; text-align: center; padding-top: 20px; }
+  .cell.batchsel { border-color: #c62828; background: #fdecea; box-shadow: 0 0 0 1px #c62828; }
+  .batchbar { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+  .batchbar button { min-height: 40px; padding: 8px 16px; }
   .stat6 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
   .stat6 input { width: 100%; }
   .stat6 label { text-align: center; margin: 0; }
@@ -80,6 +83,13 @@
 <div class="card hidden" id="boxCard">
     <strong>箱子宝可梦</strong> <span class="muted">点击格子编辑；改动在下载时生效</span>
     <div class="box-tabs" id="boxTabs" style="margin-top:10px"></div>
+    <div class="row" style="margin:6px 0"><button type="button" id="batchToggle" class="gray">批量管理</button><span class="muted" id="batchHint" style="align-self:center"></span></div>
+    <div class="batchbar hidden" id="batchBar">
+      <button type="button" id="batchAll" class="gray">全选本箱</button>
+      <button type="button" id="batchNone" class="gray">全不选</button>
+      <button type="button" id="batchDel" class="red">删除选中（0）</button>
+      <button type="button" id="batchClearBox" class="red">清空本箱</button>
+    </div>
     <div class="grid" id="boxGrid"></div>
   </div>
 <div class="card hidden" id="bagCard">
@@ -153,6 +163,13 @@
 <div class="card hidden" id="t-boxCard">
     <strong>箱子宝可梦</strong> <span class="muted">18 箱 · 点击格子编辑；改动在下载时生效</span>
     <div class="box-tabs" id="t-boxTabs" style="margin-top:10px"></div>
+    <div class="row" style="margin:6px 0"><button type="button" id="t-batchToggle" class="gray">批量管理</button><span class="muted" id="t-batchHint" style="align-self:center"></span></div>
+    <div class="batchbar hidden" id="t-batchBar">
+      <button type="button" id="t-batchAll" class="gray">全选本箱</button>
+      <button type="button" id="t-batchNone" class="gray">全不选</button>
+      <button type="button" id="t-batchDel" class="red">删除选中（0）</button>
+      <button type="button" id="t-batchClearBox" class="red">清空本箱</button>
+    </div>
     <div class="grid" id="t-boxGrid"></div>
   </div>
 <div class="card hidden" id="t-editor">
@@ -1102,6 +1119,7 @@ const $=id=>document.getElementById(id);
 const STATS=['HP','攻击','防御','速度','特攻','特防'];
 let fileBytes=null, fileName='', slots=null, model=null;
 let curBox=0, curSlot=-1, editMode='box', activePocket='items';
+let batchMode=false, batchSel=new Set();
 
 function optionHTML(map, zeroLabel){
   let h='';
@@ -1145,7 +1163,7 @@ function initStatic(){
   $('fIvs').innerHTML=STATS.map((s,i)=>`<div><label>${s}</label><input type="number" id="fIv${i}" min="0" max="31" value="31"></div>`).join('');
   $('fEvs').innerHTML=STATS.map((s,i)=>`<div><label>${s}</label><input type="number" id="fEv${i}" min="0" max="255" value="0"></div>`).join('');
   $('boxTabs').innerHTML=Array.from({length:C.BOXES},(_,i)=>`<button type="button" data-box="${i}">箱${i+1}</button>`).join('');
-  $('boxTabs').addEventListener('click',e=>{ const b=e.target.dataset.box; if(b!==undefined){curBox=+b;curSlot=-1;$('editor').classList.add('hidden');renderBox();} });
+  $('boxTabs').addEventListener('click',e=>{ const b=e.target.dataset.box; if(b!==undefined){curBox=+b;curSlot=-1;batchSel.clear();updateBatchUI();$('editor').classList.add('hidden');renderBox();} });
   $('fSpecies').addEventListener('change',()=>{ updateDerived(); refreshAbilities(0); });
   $('fExp').addEventListener('input',updateDerived);
   $('fLevel').addEventListener('input',()=>{
@@ -1195,6 +1213,21 @@ function initStatic(){
     }
   });
   $('applyMon').addEventListener('click',applyEditor);
+  $('batchToggle').addEventListener('click',()=>{ batchMode=!batchMode; batchSel.clear(); $('editor').classList.add('hidden'); updateBatchUI(); renderBox(); });
+  $('batchAll').addEventListener('click',()=>{ model.boxes[curBox].forEach((m,i)=>{ if(m) batchSel.add(i); }); updateBatchUI(); renderBox(); });
+  $('batchNone').addEventListener('click',()=>{ batchSel.clear(); updateBatchUI(); renderBox(); });
+  $('batchDel').addEventListener('click',()=>{
+    if(!batchSel.size) return;
+    if(!confirm(`确定删除选中的 ${batchSel.size} 只宝可梦？此操作在下载前可通过重新读档撤销。`)) return;
+    for(const i of batchSel) model.boxes[curBox][i]=null;
+    batchSel.clear(); updateBatchUI(); renderBox();
+  });
+  $('batchClearBox').addEventListener('click',()=>{
+    const n=model.boxes[curBox].filter(Boolean).length;
+    if(!n) return;
+    if(!confirm(`确定清空箱${curBox+1} 的全部 ${n} 只宝可梦？`)) return;
+    model.boxes[curBox].fill(null); batchSel.clear(); updateBatchUI(); renderBox();
+  });
   $('newMon').addEventListener('click',createMon);
   $('clearMon').addEventListener('click',()=>{
     if(curSlot<0)return;
@@ -1268,20 +1301,33 @@ function renderParty(){
     editMode='party'; curSlot=+cell.dataset.slot; openEditor(); renderParty(); renderBox();
   };
 }
+function updateBatchUI(){
+  $('batchBar').classList.toggle('hidden',!batchMode);
+  $('batchToggle').textContent=batchMode?'退出批量':'批量管理';
+  $('batchDel').textContent=`删除选中（${batchSel.size}）`;
+  $('batchHint').textContent=batchMode?'点击格子多选，再点删除；也可整箱清空':'';
+}
 function renderBox(){
   for(const btn of $('boxTabs').children) btn.classList.toggle('active',+btn.dataset.box===curBox);
   let h='';
   for(let s=0;s<C.CAP;s++){
     const raw=model.boxes[curBox][s];
-    if(!raw){ h+=`<div class="cell empty${(editMode==='box'&&s===curSlot)?' sel':''}" data-slot="${s}">空</div>`; continue; }
+    const bs=batchMode&&batchSel.has(s)?' batchsel':'';
+    if(!raw){ h+=`<div class="cell empty${(editMode==='box'&&s===curSlot)?' sel':''}${bs}" data-slot="${s}">空</div>`; continue; }
     const m=C.monInfo(raw), sp=DATA.species[m.species];
     const icon=iconURL(m.species);
-    h+=`<div class="cell${(editMode==='box'&&s===curSlot)?' sel':''}" data-slot="${s}">${icon?`<img src="${icon}" style="width:32px;height:32px;object-fit:contain;image-rendering:pixelated;vertical-align:middle">`:''}<span class="sp">${m.shiny?'★ ':''}${sp?sp[0]:'#'+m.species}</span><span class="lv">Lv.${m.level}</span><br>${m.nickname}</div>`;
+    h+=`<div class="cell${(editMode==='box'&&s===curSlot)?' sel':''}${bs}" data-slot="${s}">${icon?`<img src="${icon}" style="width:32px;height:32px;object-fit:contain;image-rendering:pixelated;vertical-align:middle">`:''}<span class="sp">${m.shiny?'★ ':''}${sp?sp[0]:'#'+m.species}</span><span class="lv">Lv.${m.level}</span><br>${m.nickname}</div>`;
   }
   $('boxGrid').innerHTML=h;
   $('boxGrid').onclick=e=>{
     const cell=e.target.closest('.cell'); if(!cell)return;
-    editMode='box'; curSlot=+cell.dataset.slot; openEditor(); renderBox(); renderParty();
+    const s=+cell.dataset.slot;
+    if(batchMode){
+      if(!model.boxes[curBox][s]) return;
+      if(batchSel.has(s)) batchSel.delete(s); else batchSel.add(s);
+      updateBatchUI(); renderBox(); return;
+    }
+    editMode='box'; curSlot=s; openEditor(); renderBox(); renderParty();
   };
 }
 function refreshAbilities(selected){
@@ -1410,6 +1456,7 @@ const C=globalThis.TowerCore, compat=C.compat, meta=C.meta;
 const $=id=>document.getElementById(id);
 const STATS=['HP','攻击','防御','速度','特攻','特防'];
 let fileBytes=null, fileName='', save=null, boxes=null, party=null, curBox=0, curSlot=-1, editMode='box';
+let batchMode=false, batchSel=new Set();
 
 function fillSpecies(filter){
   const list=Object.entries(meta.species).filter(([id,v])=>!filter||v.name.includes(filter)||id===filter);
@@ -1450,7 +1497,7 @@ function initStatic(){
   $('t-fIvs').innerHTML=STATS.map((s,i)=>`<div><label>${s}</label><input type="number" id="t-fIv${i}" min="0" max="31" value="31"></div>`).join('');
   $('t-fEvs').innerHTML=STATS.map((s,i)=>`<div><label>${s}</label><input type="number" id="t-fEv${i}" min="0" max="255" value="0"></div>`).join('');
   $('t-boxTabs').innerHTML=Array.from({length:C.BOXES},(_,i)=>`<button type="button" data-box="${i}">箱${i+1}</button>`).join('');
-  $('t-boxTabs').addEventListener('click',e=>{ const b=e.target.dataset.box; if(b!==undefined){curBox=+b;curSlot=-1;$('t-editor').classList.add('hidden');renderBox();} });
+  $('t-boxTabs').addEventListener('click',e=>{ const b=e.target.dataset.box; if(b!==undefined){curBox=+b;curSlot=-1;batchSel.clear();updateBatchUI();$('t-editor').classList.add('hidden');renderBox();} });
   $('t-fSpecies').addEventListener('change',()=>{ updateDerived(); refreshAbilities(0);
     $('t-fNick').value=meta.species[$('t-fSpecies').value]?.name||''; // 改种类时昵称同步为种类名
   });
@@ -1463,6 +1510,21 @@ function initStatic(){
   });
   $('t-bpMax').addEventListener('click',()=>$('t-bp').value=9999);
   $('t-applyMon').addEventListener('click',applyEditor);
+  $('t-batchToggle').addEventListener('click',()=>{ batchMode=!batchMode; batchSel.clear(); $('t-editor').classList.add('hidden'); updateBatchUI(); renderBox(); });
+  $('t-batchAll').addEventListener('click',()=>{ boxes[curBox].forEach((m,i)=>{ if(m) batchSel.add(i); }); updateBatchUI(); renderBox(); });
+  $('t-batchNone').addEventListener('click',()=>{ batchSel.clear(); updateBatchUI(); renderBox(); });
+  $('t-batchDel').addEventListener('click',()=>{
+    if(!batchSel.size) return;
+    if(!confirm(`确定删除选中的 ${batchSel.size} 只宝可梦？此操作在下载前可通过重新读档撤销。`)) return;
+    for(const i of batchSel) boxes[curBox][i]=null;
+    batchSel.clear(); updateBatchUI(); renderBox();
+  });
+  $('t-batchClearBox').addEventListener('click',()=>{
+    const n=boxes[curBox].filter(Boolean).length;
+    if(!n) return;
+    if(!confirm(`确定清空箱${curBox+1} 的全部 ${n} 只宝可梦？`)) return;
+    boxes[curBox].fill(null); batchSel.clear(); updateBatchUI(); renderBox();
+  });
   $('t-newMon').addEventListener('click',createMon);
   $('t-clearMon').addEventListener('click',()=>{
     if(curSlot<0)return;
@@ -1505,21 +1567,34 @@ function renderParty(){
     editMode='party'; curSlot=+cell.dataset.slot; openEditor(); renderParty(); renderBox();
   };
 }
+function updateBatchUI(){
+  $('t-batchBar').classList.toggle('hidden',!batchMode);
+  $('t-batchToggle').textContent=batchMode?'退出批量':'批量管理';
+  $('t-batchDel').textContent=`删除选中（${batchSel.size}）`;
+  $('t-batchHint').textContent=batchMode?'点击格子多选，再点删除；也可整箱清空':'';
+}
 function renderBox(){
   for(const btn of $('t-boxTabs').children) btn.classList.toggle('active',+btn.dataset.box===curBox);
   let h='';
   for(let s=0;s<C.CAP;s++){
     const raw=boxes[curBox][s];
-    if(!raw){ h+=`<div class="cell empty${(editMode==='box'&&s===curSlot)?' sel':''}" data-slot="${s}">空</div>`; continue; }
+    const bs=batchMode&&batchSel.has(s)?' batchsel':'';
+    if(!raw){ h+=`<div class="cell empty${(editMode==='box'&&s===curSlot)?' sel':''}${bs}" data-slot="${s}">空</div>`; continue; }
     const r=C.compat.readRecord(Array.from(raw)), sp=meta.species[r.species];
     const icon=C.iconURL(r.species);
     const shiny=C.shinyOf(r);
-    h+=`<div class="cell${(editMode==='box'&&s===curSlot)?' sel':''}" data-slot="${s}">${icon?`<img src="${icon}" style="width:32px;height:32px;object-fit:contain;image-rendering:pixelated;vertical-align:middle">`:''}<span class="sp">${shiny?'★ ':''}${sp?sp.name:'#'+r.species}</span><span class="lv">Lv.${C.levelOf(r.species,r.exp)}</span><br>${C.compat.parseCurrent(Array.from(raw))?.nickname||''}</div>`;
+    h+=`<div class="cell${(editMode==='box'&&s===curSlot)?' sel':''}${bs}" data-slot="${s}">${icon?`<img src="${icon}" style="width:32px;height:32px;object-fit:contain;image-rendering:pixelated;vertical-align:middle">`:''}<span class="sp">${shiny?'★ ':''}${sp?sp.name:'#'+r.species}</span><span class="lv">Lv.${C.levelOf(r.species,r.exp)}</span><br>${C.compat.parseCurrent(Array.from(raw))?.nickname||''}</div>`;
   }
   $('t-boxGrid').innerHTML=h;
   $('t-boxGrid').onclick=e=>{
     const cell=e.target.closest('.cell'); if(!cell)return;
-    editMode='box'; curSlot=+cell.dataset.slot; openEditor(); renderBox(); renderParty();
+    const s=+cell.dataset.slot;
+    if(batchMode){
+      if(!boxes[curBox][s]) return;
+      if(batchSel.has(s)) batchSel.delete(s); else batchSel.add(s);
+      updateBatchUI(); renderBox(); return;
+    }
+    editMode='box'; curSlot=s; openEditor(); renderBox(); renderParty();
   };
 }
 function openEditor(){
