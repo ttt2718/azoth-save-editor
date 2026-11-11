@@ -178,7 +178,7 @@
     <div class="row">
       <div><label>种类</label><input type="text" id="t-fSpeciesSearch" placeholder="搜索名称 / 编号" style="width:180px;margin-bottom:4px"><br><select class="species" id="t-fSpecies"></select></div>
       <div><label>昵称（编码后≤12字节）</label><input type="text" id="t-fNick" maxlength="12" style="width:180px"></div>
-      <div><label>持有道具</label><input id="t-fItemInput" list="itemOptions" placeholder="名称或编号" style="width:180px"><datalist id="t-itemOptions"></datalist></div>
+      <div><label>持有道具</label><input type="text" id="t-fItemSearch" placeholder="搜索名称 / 编号" style="width:160px;margin-bottom:4px"><br><select class="item" id="t-fItem" style="width:220px"></select></div>
       <div><label>特性（仅列出该物种合法特性）</label><select id="t-fAbility" style="width:200px"></select></div>
     </div>
     <div class="row">
@@ -1465,6 +1465,13 @@ function fillSpecies(filter){
   if(!list.some(([id])=>id===cur)) h=`<option value="${cur}">${cur} - ${meta.species[cur]?.name||''}</option>`+h;
   sel.innerHTML=h; sel.value=cur;
 }
+function fillTowerItems(filter){
+  const list=Object.entries(meta.names.items).filter(([id,n])=>!filter||n.includes(filter)||id===filter);
+  const sel=$('t-fItem'), cur=sel.value||'0';
+  let h=list.map(([id,n])=>`<option value="${id}">${id} - ${id==='0'?'无':n}</option>`).join('');
+  if(!list.some(([id])=>id===cur)) h=`<option value="${cur}">${cur} - ${cur==='0'?'无':meta.names.items[cur]||''}</option>`+h;
+  sel.innerHTML=h; sel.value=cur;
+}
 function fillMoves(filter){
   const list=Object.entries(meta.names.moves).filter(([id,n])=>!filter||n.includes(filter)||id===filter);
   for(let i=0;i<4;i++){
@@ -1493,7 +1500,8 @@ function initStatic(){
   fillSpecies(''); fillMoves('');
   $('t-fSpeciesSearch').addEventListener('input',()=>fillSpecies($('t-fSpeciesSearch').value.trim()));
   $('t-fMoveSearch').addEventListener('input',()=>fillMoves($('t-fMoveSearch').value.trim()));
-  $('t-itemOptions').innerHTML=Object.entries(meta.names.items).filter(([id])=>+id>0).map(([id,n])=>`<option value="${id} - ${n}"></option>`).join('');
+  $('t-fItemSearch').addEventListener('input',()=>fillTowerItems($('t-fItemSearch').value.trim()));
+  fillTowerItems('');
   $('t-fIvs').innerHTML=STATS.map((s,i)=>`<div><label>${s}</label><input type="number" id="t-fIv${i}" min="0" max="31" value="31"></div>`).join('');
   $('t-fEvs').innerHTML=STATS.map((s,i)=>`<div><label>${s}</label><input type="number" id="t-fEv${i}" min="0" max="255" value="0"></div>`).join('');
   $('t-boxTabs').innerHTML=Array.from({length:C.BOXES},(_,i)=>`<button type="button" data-box="${i}">箱${i+1}</button>`).join('');
@@ -1608,7 +1616,8 @@ function openEditor(){
   $('t-fSpecies').value=r?r.species:1;
   $('t-fNick').value=raw?(isParty?r.nickname:C.compat.parseCurrent(Array.from(raw)).nickname):(meta.species[1].name);
   const itemId=isParty?r?.item:r?.heldItem;
-  $('t-fItemInput').value=raw?((itemId||0)+' - '+((itemId?meta.names.items[itemId]:'无')||'未知道具')):'0 - 无';
+  $('t-fItemSearch').value=''; fillTowerItems('');
+  $('t-fItem').value=String(itemId||0);
   $('t-fExp').value=r?r.exp:0;
   $('t-fFriend').value=isParty?70:(r?r.friendship:70);
   $('t-fShiny').checked=r?(isParty?r.shiny:C.shinyOf(r)):false;
@@ -1633,14 +1642,8 @@ function readForm(){
     if(!Number.isInteger(v)||v<min||v>max) throw new Error(label+' 必须是 '+min+'–'+max+' 的整数。');
     return v;
   };
-  let item=0;
-  const iv=$('t-fItemInput').value.trim(), im=iv.match(/^(\d+)/);
-  if(im) item=+im[1];
-  else{
-    const hit=Object.entries(meta.names.items).find(([,n])=>n===iv)||Object.entries(meta.names.items).find(([,n])=>n.includes(iv));
-    if(hit) item=+hit[0];
-  }
-  if(!meta.names.items[item]) throw new Error('道具有效性检查失败，请从候选中选择。');
+  const item=num('t-fItem',0,65535,'道具');
+  if(item!==0&&!meta.names.items[item]) throw new Error('道具有效性检查失败。');
   return {
     species:num('t-fSpecies',1,1583,'种类'),
     nickname:$('t-fNick').value,
