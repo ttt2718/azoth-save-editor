@@ -1567,14 +1567,14 @@ function readForm(){
   }
   if(!meta.names.items[item]) throw new Error('道具有效性检查失败，请从候选中选择。');
   return {
-    species:num('fSpecies',1,1583,'种类'),
+    species:num('t-fSpecies',1,1583,'种类'),
     nickname:$('t-fNick').value,
     item,
-    exp:num('fExp',0,2097151,'经验值'),
-    friendship:num('fFriend',0,255,'亲密度'),
+    exp:num('t-fExp',0,2097151,'经验值'),
+    friendship:num('t-fFriend',0,255,'亲密度'),
     shiny:$('t-fShiny').checked,
-    nature:num('fNature',0,24,'性格'),
-    ability:num('fAbility',0,2,'特性'),
+    nature:num('t-fNature',0,24,'性格'),
+    ability:num('t-fAbility',0,2,'特性'),
     moves:[0,1,2,3].map(i=>num('fMove'+i,0,2047,'招式')),
     ivs:[0,1,2,3,4,5].map(i=>num('fIv'+i,0,31,'个体值')),
     evs:[0,1,2,3,4,5].map(i=>num('fEv'+i,0,255,'努力值'))
