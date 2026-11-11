@@ -104,7 +104,7 @@
     <div class="row">
       <div><label>种类</label><input type="text" id="fSpeciesSearch" placeholder="搜索名称 / 编号" style="width:180px;margin-bottom:4px"><br><select class="species" id="fSpecies"></select></div>
       <div><label>昵称（中文最多5字 / 编码后≤10字节）</label><input type="text" id="fNick" maxlength="12" style="width:180px"></div>
-      <div><label>持有道具</label><select class="item" id="fItem"></select></div>
+      <div><label>持有道具</label><input type="text" id="fItemSearch" placeholder="搜索名称 / 编号" style="width:180px;margin-bottom:4px"><br><select class="item" id="fItem"></select></div>
       <div><label>特性（仅列出该物种合法特性）</label><select id="fAbility" style="width:220px"></select></div>
     </div>
     <div class="row">
@@ -1125,11 +1125,20 @@ function fillSpecies(filter){
   if(!list.some(([id])=>id===cur)) h=`<option value="${cur}">${cur} - ${(DATA.species[cur]||[''])[0]}</option>`+h; // 保留当前选中项
   sel.innerHTML=h; sel.value=cur;
 }
+function fillItems(filter){
+  const list=Object.entries(DATA.items).filter(([id,n])=>!filter||n.includes(filter)||id===filter);
+  const sel=$('fItem'), cur=sel.value||'0';
+  let h=list.map(([id,n])=>`<option value="${id}">${id} - ${n}</option>`).join('');
+  if(!list.some(([id])=>id===cur)) h=`<option value="${cur}">${cur} - ${DATA.items[cur]||''}</option>`+h; // 保留当前选中项
+  sel.innerHTML=h; sel.value=cur;
+}
 function initStatic(){
   $('fNature').innerHTML=C.NATURES.map((n,i)=>`<option value="${i}">${n}${C.NATURE_EFFECTS[i]?'（'+C.NATURE_EFFECTS[i]+'）':'（无修正）'}</option>`).join('');
   fillSpecies('');
   $('fSpeciesSearch').addEventListener('input',()=>fillSpecies($('fSpeciesSearch').value.trim()));
   $('fItem').innerHTML=optionHTML(DATA.items);
+  fillItems('');
+  $('fItemSearch').addEventListener('input',()=>fillItems($('fItemSearch').value.trim()));
   $('fMoves').innerHTML=[0,1,2,3].map(i=>`<select id="fMove${i}"></select>`).join('');
   fillMoves('');
   $('fMoveSearch').addEventListener('input',()=>fillMoves($('fMoveSearch').value.trim()));
@@ -1297,6 +1306,7 @@ function openEditor(){
   $('fSpeciesSearch').value=''; fillSpecies('');
   $('fSpecies').value=m?m.species:1;
   $('fNick').value=m?m.nickname:(DATA.species[1][0]);
+  $('fItemSearch').value=''; fillItems('');
   $('fItem').value=m?m.item:0;
   $('fExp').value=m?m.exp:0;
   $('fFriend').value=m?m.friendship:(DATA.species[$('fSpecies').value][4]||70);
