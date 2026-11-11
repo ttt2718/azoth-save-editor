@@ -2,6 +2,8 @@
 
 一个纯静态、单文件的《宝可梦水银》FC 版（如 1.33）`.sav` 存档修改器。所有读写都在浏览器本地完成，不上传任何数据，无需安装、无需服务器。
 
+**对战塔特别版（如 V3.0）请使用 [tower.html](tower.html)**（线上地址 https://ttt2718.github.io/azoth-save-editor/tower.html ）：支持 BP 对战点数与 18 箱宝可梦、队伍宝可梦修改；格式与 FC 不同，不要混用页面。
+
 ## 在线使用
 
 打开 **https://ttt2718.github.io/azoth-save-editor/** 即可。
