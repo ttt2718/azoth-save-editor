@@ -34,8 +34,7 @@
 
 ## 4. BP 对战点数
 
-- `SaveBlock1 + 0xEE0`（u16），用户存档 BP=645，双份一致；与 FC 的 BracerPoints 是完全不同的东西。实机复核由用户进行。
-- 写回时两个槽都写并重建 section1 校验和。
+- **BP 在 `SaveBlock2 + 0xEB8`（u16）**。注意：最初选用的 SB1+0xEE0 实机无效，已排除；SB2+0xEB8 与前者原值均为 645，为当前候选字段，写回时更新两个槽的 section 0 并重建校验和。若仍无效，需让用户改变 BP 后导出做差分（方法同 FC BracerPoints）。
 
 ## 5. 其他说明
 
