@@ -1021,9 +1021,9 @@ function partyInfo(raw){
   const pid=u32(raw,0),ot=u32(raw,4),s=partySubs(raw);
   const species=s.G[0]&0x7FF, ivw=s.M[1], eb=[];
   for(const w of s.E)for(let k=0;k<4;k++)eb.push((w>>>(k*8))&255);
-  const bits=BigInt(s.A[0])|(BigInt(s.A[1])<<32n)|(BigInt(s.A[2])<<64n);
   return {pid,ot,species,item:(s.G[0]>>>16)&0x3FF,exp:s.G[1]&0x1FFFFF,
-    moves:[0,1,2,3].map(i=>Number((bits>>BigInt(i*10))&1023n)),
+    moves:[0,1,2,3].map(i=>(s.A[i>>1]>>>((i&1)*16))&0xFFFF),
+    ppBonuses:s.G[2]&0xFF,currentPP:[0,1,2,3].map(i=>(s.A[2]>>>(i*8))&255),
     evs:eb.slice(0,6),ivs:[0,1,2,3,4,5].map(j=>(ivw>>>(j*5))&31),
     nature:pid%25,shiny:shinyValue(pid,ot)<meta.layout.shinyOdds,ability:(ivw>>>31)&1,
     nickname:decodeText(raw.subarray(8,18)),
@@ -1065,19 +1065,19 @@ function applyParty(raw,f){
   s.G[0]=((s.G[0]&~0x7FF)|f.species)>>>0;
   s.G[0]=((s.G[0]&~(0x3FF<<16))|(f.item<<16))>>>0;
   s.G[1]=((s.G[1]&~0x1FFFFF)|(f.exp&0x1FFFFF))>>>0;
-  let bits=BigInt(s.A[0])|(BigInt(s.A[1])<<32n)|(BigInt(s.A[2])<<64n);
-  f.moves.forEach((m,i)=>{ bits=(bits&~(1023n<<BigInt(i*10)))|(BigInt(m)<<BigInt(i*10)); });
+  f.moves.forEach((m,i)=>{
+    const w=i>>1, sh=(i&1)*16;
+    s.A[w]=((s.A[w]&~(0xFFFF<<sh))|(m<<sh))>>>0;
+  });
   if(f.ppMax){
-    bits|=255n<<40n; // ppBonuses: 4 招式均 3 次提升
+    s.G[2]=(s.G[2]&~0xFF)|0xFF;
     f.moves.forEach((m,i)=>{
       const base=MOVE_PP[reverseMoves[m]];
-      if(m&&base){
-        const v=BigInt(base+3*Math.floor(base/5));
-        bits=(bits&~(255n<<BigInt(64+i*8)))|(v<<BigInt(64+i*8)); // 当前PP=允许最大值
-      }
+      if(m&&!base) return;
+      const v=m?base+3*Math.floor(base/5):0;
+      s.A[2]=((s.A[2]&~(255<<(i*8)))|(v<<(i*8)))>>>0;
     });
   }
-  s.A[0]=Number(bits&0xFFFFFFFFn); s.A[1]=Number((bits>>32n)&0xFFFFFFFFn); s.A[2]=Number((bits>>64n)&0xFFFFFFFFn);
   for(let i=0;i<6;i++){ const w=Math.floor(i/4), sh=(i%4)*8; s.E[w]=(s.E[w]&~(255<<sh))|(f.evs[i]<<sh); }
   let ivw=s.M[1]&0xC0000000;
   f.ivs.forEach((v,i)=>{ ivw|=(v&31)<<(i*5); });
@@ -1107,16 +1107,13 @@ function readParty(sb1){
 }
 function partyMaxPP(raw){
   const pid=u32(raw,0),ot=u32(raw,4),s=partySubs(raw);
-  let bits=BigInt(s.A[0])|(BigInt(s.A[1])<<32n)|(BigInt(s.A[2])<<64n);
-  bits|=255n<<40n;
+  s.G[2]=(s.G[2]&~0xFF)|0xFF;
   for(let i=0;i<4;i++){
-    const m=Number((bits>>BigInt(i*10))&1023n), base=MOVE_PP[reverseMoves[m]];
-    if(m&&base){
-      const v=BigInt(base+3*Math.floor(base/5));
-      bits=(bits&~(255n<<BigInt(64+i*8)))|(v<<BigInt(64+i*8));
-    }
+    const m=(s.A[i>>1]>>>((i&1)*16))&0xFFFF, base=MOVE_PP[reverseMoves[m]];
+    if(m&&!base) continue;
+    const v=m?base+3*Math.floor(base/5):0;
+    s.A[2]=((s.A[2]&~(255<<(i*8)))|(v<<(i*8)))>>>0;
   }
-  s.A[0]=Number(bits&0xFFFFFFFFn); s.A[1]=Number((bits>>32n)&0xFFFFFFFFn); s.A[2]=Number((bits>>64n)&0xFFFFFFFFn);
   const dec=new Array(12), p=PERM[pid%24];
   ['G','A','E','M'].forEach((L,k)=>{ for(let j=0;j<3;j++) dec[p[k]*3+j]=s[L][j]>>>0; });
   let sum=0;
@@ -1342,11 +1339,11 @@ function renderBag(){
     `<div class="row" style="margin:2px 0;gap:6px;align-items:center;flex-wrap:nowrap"><span style="min-width:200px" title="${cat}">${e.id} - ${name}</span><input type="number" data-idx="${i}" min="0" max="999" value="${e.qty}" style="width:70px"><button type="button" class="gray" data-idx="${i}" data-setqty="99" style="padding:2px 8px">99</button><button type="button" class="gray" data-idx="${i}" data-setqty="999" style="padding:2px 8px">999</button><button type="button" class="red" data-del="${i}" style="padding:2px 10px">删除</button></div>`
   ).join('');
 }
-function start(data,fileName){
+function start(data,name){
     try{
       
       slots=C.parseSave(data);
-      fileBytes=data; fileName=fileName;
+      fileBytes=data; fileName=name;
       const cur=slots[0], b=C.blocks(data,cur);
       model={money:C.u32(b.sb1,C.MONEY_OFF),coins:C.u16(b.sb1,C.COINS_OFF),bp:C.u16(data,cur.locs[13]+C.BP_OFF),boxes:[],party:C.readParty(b.sb1),pockets:Object.fromEntries(C.POCKETS.map(p=>[p.key,C.readPocket(data,cur,p)]))};
       for(let box=0;box<C.BOXES;box++){
@@ -1625,12 +1622,12 @@ function initStatic(){
   $('t-closeEditor').addEventListener('click',()=>$('t-editor').classList.add('hidden'));
   $('t-build').addEventListener('click',build);
 }
-function start(data,fileName){
+function start(data,name){
     try{
       
       const parsed=C.compat.parseSave(data);
       if(!parsed||parsed.format!=='decomp') throw new Error('不是有效的对战塔版存档（或校验未通过）。FC 版请使用 FC 修改器。');
-      fileBytes=data; fileName=fileName; save=parsed;
+      fileBytes=data; fileName=name; save=parsed;
       boxes=Array.from({length:C.BOXES},()=>Array(C.CAP).fill(null));
       for(const arr of parsed.boxes) for(const mon of arr) boxes[mon.box][mon.slot]=Uint8Array.from(mon.raw);
       $('fileName').textContent=fileName+'（'+data.length+' 字节 ✓）';
@@ -1736,7 +1733,7 @@ function readForm(){
     shiny:$('t-fShiny').checked,
     nature:num('t-fNature',0,24,'性格'),
     ability:num('t-fAbility',0,2,'特性'),
-    moves:[0,1,2,3].map(i=>num('t-fMove'+i,0,1023,'招式')),
+    moves:[0,1,2,3].map(i=>num('t-fMove'+i,0,2047,'招式')),
     ivs:[0,1,2,3,4,5].map(i=>num('t-fIv'+i,0,31,'个体值')),
     evs:[0,1,2,3,4,5].map(i=>num('t-fEv'+i,0,255,'努力值'))
   };
