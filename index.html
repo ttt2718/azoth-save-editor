@@ -1467,7 +1467,7 @@ function start(data,fileName){
       const sb1=[secs[1],secs[2],secs[3],secs[4]].reduce((a,b)=>{const o=new Uint8Array(a.length+b.length);o.set(a,0);o.set(b,a.length);return o;},new Uint8Array(0));
       $('t-bp').value=C.u16(sb1,C.BP_OFF);
       party=C.readParty(sb1);
-      for(const id of ['bpCard','boxCard','dlCard','partyCard']) $(id).classList.remove('hidden');
+      for(const id of ['t-bpCard','t-boxCard','t-dlCard','t-partyCard']) $(id).classList.remove('hidden');
       renderParty();
       $('t-editor').classList.add('hidden'); curSlot=-1; curBox=0;
       renderBox();
