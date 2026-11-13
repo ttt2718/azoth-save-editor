@@ -4,56 +4,86 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>宝可梦水银 存档修改器（FC / 对战塔自动识别）</title>
+<script>
+(function(){
+  let saved=null;
+  try{ saved=localStorage.getItem('azoth-theme'); }catch(e){}
+  const dark=saved==='dark'||saved==='light'?saved==='dark':Boolean(globalThis.matchMedia?.('(prefers-color-scheme: dark)').matches);
+  document.documentElement.dataset.theme=dark?'dark':'light';
+})();
+</script>
 <style>
-  :root { color-scheme: light; }
+  :root {
+    color-scheme: light;
+    --page-bg: #f4f6f8; --text: #223; --card-bg: #fff; --card-border: #e0e5e9;
+    --note-bg: #eefaf8; --accent: #0b8a7b; --drop-border: #9db8b4;
+    --muted: #789; --label: #456; --input-bg: #fff; --input-border: #c9d2d8;
+    --tab-bg: #b0bec5; --tab-text: #123; --cell-bg: #fafbfc; --cell-border: #d5dde2;
+    --selected-bg: #e0f2ef; --batch-bg: #fdecea; --empty: #a0aeb5; --error: #d33;
+    --shadow: rgba(0,0,0,.05);
+  }
+  html[data-theme="dark"] {
+    color-scheme: dark;
+    --page-bg: #10171c; --text: #dce6ea; --card-bg: #19242b; --card-border: #31434d;
+    --note-bg: #153832; --accent: #26b8a5; --drop-border: #4b6d69;
+    --muted: #9db0ba; --label: #b4c5cc; --input-bg: #111b21; --input-border: #42545e;
+    --tab-bg: #3d515b; --tab-text: #e0edf1; --cell-bg: #142027; --cell-border: #354852;
+    --selected-bg: #173f3a; --batch-bg: #472526; --empty: #748993; --error: #ff8585;
+    --shadow: rgba(0,0,0,.25);
+  }
   * { box-sizing: border-box; }
-  body { margin: 0; font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; background: #f4f6f8; color: #223; }
+  body { margin: 0; font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; background: var(--page-bg); color: var(--text); }
   .wrap { max-width: 1100px; margin: 0 auto; padding: 20px 14px 60px; }
+  .title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   h1 { font-size: 1.35rem; margin: 4px 0 12px; }
-  .card { background: #fff; border: 1px solid #e0e5e9; border-radius: 10px; padding: 16px 18px; margin: 12px 0; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
-  .note { background: #eefaf8; border-left: 4px solid #0b8a7b; font-size: .88rem; line-height: 1.7; }
-  .file-drop { border: 2px dashed #9db8b4; border-radius: 10px; padding: 20px; text-align: center; cursor: pointer; }
-  .file-drop.over { background: #eefaf8; }
+  #themeToggle { flex-shrink: 0; padding: 7px 14px; }
+  .card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 16px 18px; margin: 12px 0; box-shadow: 0 1px 3px var(--shadow); }
+  .note { background: var(--note-bg); border-left: 4px solid var(--accent); font-size: .88rem; line-height: 1.7; }
+  .file-drop { border: 2px dashed var(--drop-border); border-radius: 10px; padding: 20px; text-align: center; cursor: pointer; }
+  .file-drop.over { background: var(--note-bg); }
   .file-drop input { display: none; }
-  .file-name { font-size: .85rem; color: #567; margin-top: 6px; }
-  button { padding: 8px 18px; font-size: .92rem; font-weight: 600; color: #fff; background: #0b8a7b; border: none; border-radius: 8px; cursor: pointer; }
+  .file-name { font-size: .85rem; color: var(--muted); margin-top: 6px; }
+  button { padding: 8px 18px; font-size: .92rem; font-weight: 600; color: #fff; background: var(--accent); border: none; border-radius: 8px; cursor: pointer; }
   button:disabled { background: #9db8b4; cursor: not-allowed; }
   button.gray { background: #78909c; }
   button.red { background: #c62828; }
   a.dl { display: inline-block; padding: 12px 28px; background: #1565c0; color: #fff; border-radius: 8px; text-decoration: none; font-weight: 600; }
-  label { font-size: .82rem; color: #456; display: block; margin: 8px 0 3px; }
-  input[type=number], input[type=text], select { padding: 6px 8px; border: 1px solid #c9d2d8; border-radius: 6px; font-size: .92rem; background: #fff; max-width: 100%; }
+  label { font-size: .82rem; color: var(--label); display: block; margin: 8px 0 3px; }
+  input[type=number], input[type=text], select { padding: 6px 8px; border: 1px solid var(--input-border); border-radius: 6px; font-size: .92rem; background: var(--input-bg); color: var(--text); max-width: 100%; }
   .row { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: flex-end; }
   .money-input { font-size: 1.1rem; width: 160px; }
   .box-tabs { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
-  .box-tabs button { padding: 4px 9px; font-size: .8rem; background: #b0bec5; color: #123; font-weight: 500; }
-  .box-tabs button.active { background: #0b8a7b; color: #fff; }
+  .box-tabs button { padding: 4px 9px; font-size: .8rem; background: var(--tab-bg); color: var(--tab-text); font-weight: 500; }
+  .box-tabs button.active { background: var(--accent); color: #fff; }
   .grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
-  .cell { border: 1px solid #d5dde2; border-radius: 8px; min-height: 64px; padding: 5px 6px; font-size: .74rem; cursor: pointer; background: #fafbfc; line-height: 1.45; }
-  .cell:hover { border-color: #0b8a7b; }
-  .cell.sel { border-color: #0b8a7b; background: #e0f2ef; box-shadow: 0 0 0 1px #0b8a7b; }
+  .cell { border: 1px solid var(--cell-border); border-radius: 8px; min-height: 64px; padding: 5px 6px; font-size: .74rem; cursor: pointer; background: var(--cell-bg); line-height: 1.45; }
+  .cell:hover { border-color: var(--accent); }
+  .cell.sel { border-color: var(--accent); background: var(--selected-bg); box-shadow: 0 0 0 1px var(--accent); }
   .cell .sp { font-weight: 700; font-size: .82rem; display: block; }
-  .cell .lv { color: #567; }
-  .cell.empty { color: #a0aeb5; text-align: center; padding-top: 20px; }
-  .cell.batchsel { border-color: #c62828; background: #fdecea; box-shadow: 0 0 0 1px #c62828; }
+  .cell .lv { color: var(--muted); }
+  .cell.empty { color: var(--empty); text-align: center; padding-top: 20px; }
+  .cell.batchsel { border-color: #c62828; background: var(--batch-bg); box-shadow: 0 0 0 1px #c62828; }
   .batchbar { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
   .batchbar button { min-height: 40px; padding: 8px 16px; }
   .stat6 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
   .stat6 input { width: 100%; }
   .stat6 label { text-align: center; margin: 0; }
-  .err { color: #d33; font-size: .88rem; margin-top: 8px; white-space: pre-wrap; }
-  .ok { color: #0b8a7b; font-weight: 600; }
+  .err { color: var(--error); font-size: .88rem; margin-top: 8px; white-space: pre-wrap; }
+  .ok { color: var(--accent); font-weight: 600; }
   .hidden { display: none; }
   #editor select.species, #editor select.item { width: 260px; }
   .moves { display: grid; grid-template-columns: repeat(2, minmax(180px, 260px)); gap: 4px 12px; }
-  .muted { color: #789; font-size: .8rem; }
+  .muted { color: var(--muted); font-size: .8rem; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>宝可梦水银 存档修改器 <span class="muted">FC / 对战塔自动识别 · 金钱 / BP / 背包 / 宝可梦</span></h1>
+  <div class="title-row">
+    <h1>宝可梦水银 存档修改器 <span class="muted">FC / 对战塔自动识别 · 金钱 / BP / 背包 / 宝可梦</span></h1>
+    <button type="button" id="themeToggle" class="gray" aria-pressed="false" aria-label="切换为深色模式">深色模式</button>
+  </div>
   <div class="card note">
-    全程在浏览器本地完成，不上传任何数据。<strong>上传 FC 版或对战塔版 .sav，自动进入对应界面。</strong>对战塔版不提供背包/金钱修改；队伍特性在对战塔不可改。<br>
+    全程在浏览器本地完成，不上传任何数据。<strong>上传 FC 版或对战塔版 .sav，自动进入对应界面。</strong>对战塔版背包仅提供 PP 极限提升剂，不支持金钱修改；队伍特性在对战塔不可改。<br>
     <strong>请先备份原 .sav；修改后用新文件替换原存档，并完全重启模拟器正常读档，不要从即时存档恢复。</strong>
   </div>
   <div class="card">
@@ -1857,6 +1887,24 @@ window.TOWER_UI={start};
     e.preventDefault(); $('drop').classList.toggle('over',ev==='dragover');
     if(ev==='drop') loadAny(e.dataTransfer.files[0]);
   }));
+})();
+</script>
+<script>
+(function(){
+  const button=document.getElementById('themeToggle');
+  function apply(theme){
+    document.documentElement.dataset.theme=theme;
+    const dark=theme==='dark';
+    button.textContent=dark?'浅色模式':'深色模式';
+    button.setAttribute('aria-pressed',String(dark));
+    button.setAttribute('aria-label',dark?'切换为浅色模式':'切换为深色模式');
+  }
+  apply(document.documentElement.dataset.theme==='dark'?'dark':'light');
+  button.addEventListener('click',()=>{
+    const theme=document.documentElement.dataset.theme==='dark'?'light':'dark';
+    apply(theme);
+    try{ localStorage.setItem('azoth-theme',theme); }catch(e){}
+  });
 })();
 </script>
 </body>
