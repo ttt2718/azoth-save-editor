@@ -192,9 +192,11 @@ HP      = core + level + 10        （baseHP=1 时固定为 1，即脱壳忍者�
 ## 11. 数据来源与再生成
 
 - `azoth-wiki/docs/home/home-game-data.json`：species（含 baseStats/growthRate/abilities/genderRatio/friendship）、items、moves、abilities、experienceTables、charmap。
-- `azoth-wiki/docs/home/app.html` + `decomp-compat.js`：FC 箱子格式、箱子位置、section 尺寸、对战塔（BAG16/PC18）格式（本编辑器不支持，但可作跨版本参考）。
+- `azoth-wiki/docs/home/app.html` + `decomp-compat.js`：FC 箱子格式、箱子位置、section 尺寸、对战塔（BAG16/PC18）格式，兼作跨版本编号映射。
 - `azoth-wiki/docs/pokemon/icons/`、`sprites/`：图标与立绘（sprites 尚未内嵌，做闪光立绘时可取用）。
 - 重新生成嵌入数据：按第 10 节的结构从上述 JSON 重新序列化 `DATA`，`ICONS` 为文件名数字→base64；ROM 用于提取性格名称表这类 wiki 没有的信息。
+- `pokepaste-core`：单只 PokePaste 文本解析与双版本表单转换。默认等级 100、亲密度 255、EV 0、IV 31；一次只允许一只，未知字段报错，性别/球种/太晶等当前未开放字段忽略。
+- `pokepaste-data` 的 `POKEPASTE_IDS`：species 由 Wiki 宏名生成，并补 Gmax、Urshifu、性别形态等别名；items 由 Wiki 道具宏生成；itemsTower 由对战塔 `include/constants/items.h` 的现行编号生成；moves/movesTower 由对战塔 `include/constants/moves.h` 的真实 `MOVE_*` 常量生成，FC 编号经 `meta.forward.moves` 反查，**不得使用 Showdown 招式 num 代替本作编号**；abilities 由 Showdown `data/abilities.ts` 的英文 ID 与 num 生成。特性通过对战塔中文名反查 FC ID，其他跨版字段使用 `meta.forward`，不可映射时拒绝导入。
 
 ## 12. 测试方法（无浏览器，Node 即可）
 
@@ -204,6 +206,7 @@ HP      = core + level + 10        （baseHP=1 时固定为 1，即脱壳忍者�
   2. 每项修改「编辑→buildSave→重新解析→逐字段断言」。
   3. 性格 25 项与 ROM 名称表逐一比对；能力值对原始 6 只重算必须全等。
   4. 差异审计：逐扇区 diff 原文件与输出，确认只有预期扇区变化；文件大小、末尾 16 字节不变。
+  5. PokePaste：官方样例、昵称/性别/道具首行、默认值、IV/EV 顺序、备选招式与 Hidden Power；FC/对战塔队伍和箱子均须走完导入→写回→重读，非法名称不得覆盖原个体。
 - 浏览器 UI 至少做 `new Function(uiSource)` 语法检查。
 
 ## 13. 未确认 / 后续可做
